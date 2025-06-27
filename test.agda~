@@ -1,0 +1,16 @@
+{-# OPTIONS --without-K --safe --cubical #-}
+
+module test where
+
+open import Agda.Primitive renaming (Set to Type)
+open import Data.Nat using (ℕ; zero; suc)
+
+_+_ : ℕ -> ℕ ->  ℕ
+zero + n    = n
+(suc n) + m = suc (n + m)
+
+record Monoid (M : Type) : Type where
+  field
+    ϵ : M
+    _·_ : M -> M -> M
+    idnₗ : {x : M} -> Path M (x·ϵ) x
