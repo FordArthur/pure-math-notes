@@ -9,7 +9,6 @@ open import Cubical.Foundations.Prelude
 
 open import preliminaries
 
-
 -- Definition 2.1.1 (Fibration)
 -- At first glance, the following definition differs quite a bit from the book's definition. However, they are not that different, we simply map out of homotopies instead of the product
 -- with an interval. It is easy to see that these are equivalent (This is just my intuition that this equivalent formulation will yield cleaner proofs, and it seems like so, see below)

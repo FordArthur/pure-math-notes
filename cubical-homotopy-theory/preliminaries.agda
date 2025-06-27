@@ -12,11 +12,12 @@ open import Agda.Primitive renaming (Set to Type)
 open import Data.Unit
 open import Data.Bool
 open import Data.Nat
-open import Data.Product using (_×_)
+open import Data.Product using (_×_; proj₁; proj₂; curry; uncurry)
 open import Function
 open import Function.Base
 open import Cubical.Foundations.Prelude
 open import Cubical.Foundations.Isomorphism
+open import Cubical.Foundations.GroupoidLaws
 open import Cubical.HITs.Pushout.Base
 
 -- Definition (Functoriality)
@@ -41,9 +42,10 @@ open 𝕀 public
 record Pointed {ℓ} : Type (lsuc ℓ) where
   constructor _∋₊_
   field 
-    space : Type ℓ
-    point : space
+    ⨀ : Type ℓ
+    ✦ : ⨀
 open Pointed public
+infixr 1 _∋₊_
 
 -- Definition (Adjoining a disjoint basepoint)
 data _₊ {ℓ} (X : Type ℓ) : Type ℓ where
@@ -58,12 +60,10 @@ data Cone {ℓ} (X : Type ℓ) : Type ℓ where
   generatrix : (x : X) -> Path (Cone X) (base x) vertex
 
 -- Definition 1.1.10 (Suspension of a space)
--- NOTE: This is HoTT's way of defining the suspension. And I do use it for defining the spheres
--- however, for pointed theorems a latter definition will be prefered
 data Susp {ℓ} (X : Type ℓ) : Type ℓ where
   north : Susp X
   south : Susp X
-  mer : (x : X) -> Path (Susp X) north south
+  mer : X -> Path (Susp X) north south
 
 -- Example 1.1.12 (Functoriality of suspensions)
 suspIsFunctorial : {ℓ : Level} -> Functor {ℓ} Susp
@@ -88,7 +88,7 @@ suspIsFunctorial = record
 -- Definition 1.1.13 (Wedge sum)
 _⋁_ : (X Y : Pointed {lzero}) -> Pointed 
 _⋁_  X₊@(X ∋₊ x₀) Y₊@(Y ∋₊ y₀) = Pushout (inclpt X₊) (inclpt Y₊) ∋₊ inl x₀
-  where inclpt : (X : Pointed {lzero}) -> ⊤ -> space X
+  where inclpt : (X : Pointed {lzero}) -> ⊤ -> ⨀ X
         inclpt (X ∋₊ x₀) = λ _ -> x₀
 
 -- Definition (Cone of a function)
@@ -100,10 +100,10 @@ FCone f = Pushout !⊤ f ∋₊ inl tt
 -- Definition 1.1.15 (Smash product)
 _⋀_ : (X Y : Pointed {lzero}) -> Pointed
 _⋀_ X₊@(X ∋₊ x₀) Y₊@(Y ∋₊ y₀) = FCone (smash {X₊} {Y₊})
-  where smash : {X Y : Pointed {lzero}} -> space (X ⋁ Y) -> space X × space Y
+  where smash : {X Y : Pointed {lzero}} -> ⨀ (X ⋁ Y) -> ⨀ X × ⨀ Y
         smash {X ∋₊ x₀} {Y ∋₊ y₀} (inl x) = x , y₀
         smash {X ∋₊ x₀} {Y ∋₊ y₀} (inr y) = x₀ , y
-        smash {X ∋₊ x₀} {Y ∋₊ y₀} (push x i) = x₀ , y₀
+        smash {X ∋₊ x₀} {Y ∋₊ y₀} (push _ i) = x₀ , y₀
 
 -- Definition (Sphere)
 data 𝕊¹ : Type where
@@ -113,37 +113,78 @@ data 𝕊¹ : Type where
 𝕊¹₊ : Pointed
 𝕊¹₊ = 𝕊¹ ∋₊ baseₛ₁
 
+-- Definition 1.1.17 (Join)
+_⋆_ : {ℓ : Level} (X Y : Type ℓ) -> Type ℓ
+_⋆_ X Y = Pushout {A = X × Y} proj₁ proj₂
+
 -- NOTE: This is just a nice repackage of Susp for what is to come
 Σ₊ : (X : Pointed {lzero}) -> Pointed
-Σ₊ X = 𝕊¹₊ ⋀ X
+Σ₊ X = Susp (⨀ X) ∋₊ north
 
 -- Definition (Pointed Map)
-record Map {ℓ} (X Y : Pointed {ℓ}) : Type ℓ where
+record Map₊ {ℓ} (X Y : Pointed {ℓ}) : Type ℓ where
+  constructor Map
   field
-    map : space X -> space Y
-    ptCoe : Path (space Y) (map (point X)) (point Y)
+    map : ⨀ X -> ⨀ Y
+    ptCoe : Path (⨀ Y) (map (✦ X)) (✦ Y)
+open Map₊ public
 
--- Definition (Loop Space)
--- NOTE: This follows CHT's definition
-Ω :  (X : Pointed) -> Pointed
-Ω X = record { space = Map 𝕊¹₊ X; point = record { map = λ s -> point X; ptCoe = refl } }
+infixr 10 _->₊_
+_->₊_ : {ℓ : Level} (X Y : Pointed {ℓ}) -> Pointed {ℓ}
+_->₊_ X₊ Y₊@(Y ∋₊ y₀) = Map₊ X₊ Y₊ ∋₊ Map (λ _ -> y₀) refl
+
+-- Definition (Loop space)
+Ω : (X : Pointed {lzero}) -> Pointed
+Ω (X ∋₊ x₀) = x₀ ≡ x₀ ∋₊ refl
+
+-- Definition (Free loop space)
+L : (X : Type) -> Type
+L X = 𝕊¹ -> X
     
+-- Theorem 1.2.7 (Exponential law, unbased version)
+exponentialLaw : {ℓ : Level} {X Y Z : Type ℓ} -> (X × Y -> Z) ≡ (X -> Y -> Z)
+exponentialLaw = isoToPath (iso curry uncurry {!!} {!!})
+
+-- Theorem 1.2.8 (Exponential law, based version)
+exponentialLaw₊ : {X Y Z : Pointed} -> ⨀ (X ⋀ Y ->₊ Z) ≡ ⨀ (X ->₊ Y ->₊ Z)
+exponentialLaw₊ = isoToPath (iso curry₊ uncurry₊ {!!} {!!})
+  where
+    curry₊ : {X Y Z : Pointed} -> ⨀ (X ⋀ Y ->₊ Z) -> ⨀ (X ->₊ Y ->₊ Z)
+    curry₊ (Map f h) = Map (λ x -> Map (λ y -> f (inr (x , y)))
+                                       (sym (cong f (push (inl x))) ∙ h))
+                           (cong₂ Map (funExt (λ y -> sym (cong f (push (inr y))) ∙ h))
+                                      {!!})
+
+    uncurry₊ : {X Y Z : Pointed} -> ⨀ (X ->₊ Y ->₊ Z) -> ⨀ (X ⋀ Y ->₊ Z)
+    uncurry₊ {X ∋₊ x₀} {Y ∋₊ y₀} (Map f h) = Map (λ { (inl tt) -> map (f x₀) y₀
+                                ; (inr (x , y)) -> map (f x) y
+                                ; (push p i) -> {!!}
+                                })
+                             {!!}
+
 -- Proposition (Loop-Suspension Adjunction)
-loopSuspAdjunction : {X Y : Pointed} -> Map (Σ₊ X) Y ≡ Map X (Ω Y)
-loopSuspAdjunction = isoToPath (iso loopSuspCurry {!!} {!!} {!!})
-  where loopSuspCurry : {X Y : Pointed} -> Map (Σ₊ X) Y -> Map X (Ω Y)
-        loopSuspCurry = λ (record { map = f; ptCoe = h }) -> record
-          { map = λ x -> record
-            { map = λ
-              { baseₛ₁ -> f (inl tt)
-              ; (loopₛ₁ i) -> {!!}
-              }
-            ; ptCoe = h
-            }
-          ; ptCoe = {!!}
-          }
+-- loopSuspCurry : {X Y : Pointed} -> Σ₊ X ->₊ Y -> X ->₊ Ω Y
+-- loopSuspCurry {X ∋₊ x₀} = λ (Map f h) -> Map
+--   (λ x -> (sym h ∙ cong f (mer x)) ∙ sym (sym h ∙ cong f (mer x₀)))
+--   (rCancel (sym h ∙ cong f (mer x₀)))
+-- 
+-- loopSuspUncurry : {X Y : Pointed} -> X ->₊ Ω Y -> Σ₊ X ->₊ Y
+-- loopSuspUncurry {X ∋₊ x₀} = λ (Map f h) -> Map
+--   (λ { north -> f x₀ i0
+--      ; south -> f x₀ i1
+--      ; (mer x i) -> f x i
+--      })
+--   refl
+-- 
+-- loopSuspSection : {X Y : Pointed} -> section loopSuspCurry loopSuspUncurry 
+-- loopSuspSection = {!!}
+-- 
+-- loopSuspRetract : {X Y : Pointed} -> retract loopSuspCurry loopSuspUncurry 
+-- loopSuspRetract = {!!}
+-- 
+-- loopSuspAdjunction : {X Y : Pointed} -> Σ₊ X ->₊ Y ≡ X ->₊ Ω Y
+-- loopSuspAdjunction = isoToPath (iso loopSuspCurry loopSuspUncurry loopSuspSection loopSuspRetract)
 
 -- Definition (Weak Equivalence)
-record _≅_ {ℓ} (X Y : Type ℓ) : Type (lsuc ℓ) where
-  field
-    weakequiv : {K : Type ℓ} -> (K -> X) ≡ (K -> Y)
+_≅_ : {ℓ : Level} (X Y : Type ℓ) {K : Type ℓ} -> Type (lsuc ℓ)
+_≅_ X Y {K} = (K -> X) ≡ (K -> Y)
