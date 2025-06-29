@@ -143,7 +143,7 @@ L X = 𝕊¹ -> X
     
 -- Theorem 1.2.7 (Exponential law, unbased version)
 exponentialLaw : {ℓ : Level} {X Y Z : Type ℓ} -> (X × Y -> Z) ≡ (X -> Y -> Z)
-exponentialLaw = isoToPath (iso curry uncurry {!!} {!!})
+exponentialLaw = isoToPath (iso curry uncurry (λ f -> refl) (λ g -> refl))
 
 -- Theorem 1.2.8 (Exponential law, based version)
 exponentialLaw₊ : {X Y Z : Pointed} -> ⨀ (X ⋀ Y ->₊ Z) ≡ ⨀ (X ->₊ Y ->₊ Z)
@@ -158,11 +158,47 @@ exponentialLaw₊ = isoToPath (iso curry₊ uncurry₊ {!!} {!!})
     uncurry₊ : {X Y Z : Pointed} -> ⨀ (X ->₊ Y ->₊ Z) -> ⨀ (X ⋀ Y ->₊ Z)
     uncurry₊ {X ∋₊ x₀} {Y ∋₊ y₀} (Map f h) = Map (λ { (inl tt) -> map (f x₀) y₀
                                 ; (inr (x , y)) -> map (f x) y
-                                ; (push p i) -> {!!}
+                                ; (push (inl x) i) -> (cong (λ g -> map g y₀) h ∙ sym (ptCoe (f x))) i
+                                ; (push (inr y) i) -> (cong (λ g -> map g y₀) h ∙ sym (cong (λ g -> map g y) h)) i
+                                ; (push (push tt i) j) -> {!!}
                                 })
-                             {!!}
+                             (ptCoe (f x₀))
 
 -- Proposition (Loop-Suspension Adjunction)
+ΩX≡𝕊¹->₊X : {X : Pointed} -> ⨀ (Ω X) ≡ ⨀ (𝕊¹₊ ->₊ X)
+ΩX≡𝕊¹->₊X = isoToPath (iso loopToMap mapToLoop loopMap∘mapLoop mapLoop∘loopMap)
+  where
+    loopToMap : {X : Pointed} -> ⨀ (Ω X) -> ⨀ (𝕊¹₊ ->₊ X)
+    loopToMap l = Map (λ { baseₛ₁ -> l i0
+                         ; (loopₛ₁ i) -> l i
+                         })
+                      refl
+
+    mapToLoop : {X : Pointed} -> ⨀ (𝕊¹₊ ->₊ X) -> ⨀ (Ω X)
+    mapToLoop (Map f h) = sym h ∙ (λ i -> f (loopₛ₁ i)) ∙ h
+
+    loopMap∘mapLoop : {X : Pointed {lzero}} -> section (loopToMap {X}) mapToLoop
+    loopMap∘mapLoop (Map f h) = cong₂ Map (funExt (λ { baseₛ₁ -> sym h; (loopₛ₁ i) -> {!!} })) {!!}
+
+    mapLoop∘loopMap : {X : Pointed {lzero}} -> retract (loopToMap {X}) mapToLoop
+    mapLoop∘loopMap p = {!!} -- sym (rUnit ((sym refl) ∙ p)) ∙ sym (cong (λ q -> q ∙ p) symRefl) ∙ sym (lUnit p)
+
+Σ₊X≡X⋀𝕊¹ : {X : Pointed} -> ⨀ (Σ₊ X) ≡ ⨀ (X ⋀ 𝕊¹₊)
+Σ₊X≡X⋀𝕊¹ = isoToPath (iso suspToSmash smashToSusp {!!} {!!})
+  where
+    suspToSmash : {X : Pointed} -> ⨀ (Σ₊ X) -> ⨀ (X ⋀ 𝕊¹₊)
+    suspToSmash = λ { north -> inl tt
+                    ; south -> inl tt
+                    ; (mer x i) -> (push (inl x) ∙ (λ j -> inr (x , loopₛ₁ j)) ∙ sym (push (inl x))) i
+                    }
+
+    smashToSusp : {X : Pointed} -> ⨀ (X ⋀ 𝕊¹₊) -> ⨀ (Σ₊ X) 
+    smashToSusp = λ { (inl tt) -> north
+                    ; (inr (x , baseₛ₁)) -> mer x i0
+                    ; (inr (x , (loopₛ₁ i))) -> north -- mer x i
+                    ; (push x i) -> {!!}
+                    }
+
 -- loopSuspCurry : {X Y : Pointed} -> Σ₊ X ->₊ Y -> X ->₊ Ω Y
 -- loopSuspCurry {X ∋₊ x₀} = λ (Map f h) -> Map
 --   (λ x -> (sym h ∙ cong f (mer x)) ∙ sym (sym h ∙ cong f (mer x₀)))
@@ -188,3 +224,23 @@ exponentialLaw₊ = isoToPath (iso curry₊ uncurry₊ {!!} {!!})
 -- Definition (Weak Equivalence)
 _≅_ : {ℓ : Level} (X Y : Type ℓ) {K : Type ℓ} -> Type (lsuc ℓ)
 _≅_ X Y {K} = (K -> X) ≡ (K -> Y)
+
+-- Definition (Group)
+record Group {ℓ} : Type (lsuc ℓ) where
+  constructor 𝒢𝓇𝓅
+  field 
+    𝒢 : Type ℓ
+    _✶_ : 𝒢 -> 𝒢 -> 𝒢
+    ϵ : 𝒢
+    𝒢-unitₗ : (x : 𝒢) -> ϵ ✶ x ≡ x
+    𝒢-unitᵣ : (x : 𝒢) -> x ✶ ϵ ≡ x
+    𝒢-inv : 𝒢 -> 𝒢
+    𝒢-cancelₗ : (x : 𝒢) -> (𝒢-inv x) ✶ x ≡ ϵ
+    𝒢-cancelᵣ : (x : 𝒢) -> x ✶ (𝒢-inv x) ≡ ϵ
+    𝒢-assoc : (x y z : 𝒢) -> x ✶ (y ✶ z) ≡ (x ✶ y) ✶ z
+open Group public
+
+-- Definition (Nth homotopy group)
+-- TODO: Generalize to make it actually nth
+_π_ : (n : ℕ) (X : Pointed) -> Group
+_π_ n X = 𝒢𝓇𝓅 (⨀ (Ω X)) (_∙_) refl (sym ∘ lUnit) (sym ∘ rUnit) sym lCancel rCancel assoc
