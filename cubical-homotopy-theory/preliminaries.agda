@@ -10,7 +10,6 @@ module preliminaries where
 
 open import Agda.Primitive renaming (Set to Type)
 open import Data.Unit
-open import Data.Bool
 open import Data.Nat
 open import Data.Product using (_×_; proj₁; proj₂; curry; uncurry)
 open import Function
@@ -22,6 +21,7 @@ open import Cubical.HITs.Pushout.Base
 
 -- Definition (Functoriality)
 record Functor {ℓ} (F : Type ℓ -> Type ℓ) : Type (lsuc ℓ) where
+  constructor ℱ𝓊𝓃𝒸𝓉
   field
     fmap : {X Y : Type ℓ} -> (X -> Y) -> F X -> F Y
     funIdn : {X : Type ℓ} -> fmap {X} id ≡ id
@@ -67,23 +67,10 @@ data Susp {ℓ} (X : Type ℓ) : Type ℓ where
 
 -- Example 1.1.12 (Functoriality of suspensions)
 suspIsFunctorial : {ℓ : Level} -> Functor {ℓ} Susp
-suspIsFunctorial = record
-  { fmap = λ f -> λ
-    { north -> north 
-    ; south -> south
-    ; (mer x i) -> mer (f x) i
-    }
-  ; funIdn = funExt (λ
-    { north -> refl
-    ; south -> refl
-    ; (mer x i) -> refl
-    })
-  ; funComp = funExt (λ
-    { north -> refl
-    ; south -> refl
-    ; (mer x i) -> refl
-    })
-  }
+suspIsFunctorial = ℱ𝓊𝓃𝒸𝓉
+  (λ f -> λ {north -> north; south -> south; (mer x i) -> mer (f x) i})
+  (funExt (λ {north -> refl; south -> refl; (mer x i) -> refl}))
+  (funExt (λ {north -> refl; south -> refl; (mer x i) -> refl}))
 
 -- Definition 1.1.13 (Wedge sum)
 _⋁_ : (X Y : Pointed {lzero}) -> Pointed 
@@ -134,8 +121,12 @@ _->₊_ : {ℓ : Level} (X Y : Pointed {ℓ}) -> Pointed {ℓ}
 _->₊_ X₊ Y₊@(Y ∋₊ y₀) = Map₊ X₊ Y₊ ∋₊ Map (λ _ -> y₀) refl
 
 -- Definition (Loop space)
-Ω : (X : Pointed {lzero}) -> Pointed
-Ω (X ∋₊ x₀) = x₀ ≡ x₀ ∋₊ refl
+Ω₁ : (X : Pointed {lzero}) -> Pointed
+Ω₁ (X ∋₊ x₀) = x₀ ≡ x₀ ∋₊ refl
+
+_Ω⁺_ : (n : ℕ) (X : Pointed {lzero}) -> Pointed
+_Ω⁺_ zero X    = Ω₁ X
+_Ω⁺_ (suc n) X = Ω₁ (n Ω⁺ X)
 
 -- Definition (Free loop space)
 L : (X : Type) -> Type
@@ -150,41 +141,41 @@ exponentialLaw₊ : {X Y Z : Pointed} -> ⨀ (X ⋀ Y ->₊ Z) ≡ ⨀ (X ->₊ 
 exponentialLaw₊ = isoToPath (iso curry₊ uncurry₊ {!!} {!!})
   where
     curry₊ : {X Y Z : Pointed} -> ⨀ (X ⋀ Y ->₊ Z) -> ⨀ (X ->₊ Y ->₊ Z)
-    curry₊ (Map f h) = Map (λ x -> Map (λ y -> f (inr (x , y)))
+    curry₊ {Y = Y} (Map f h) = Map (λ x -> Map (λ y -> f (inr (x , y)))
                                        (sym (cong f (push (inl x))) ∙ h))
                            (cong₂ Map (funExt (λ y -> sym (cong f (push (inr y))) ∙ h))
-                                      {!!})
+                                      (λ i -> λ j -> {!h (i ∨ j)!})) -- in j: p p⁻¹ -> z₀ in i: f x₀ -> z₀
 
     uncurry₊ : {X Y Z : Pointed} -> ⨀ (X ->₊ Y ->₊ Z) -> ⨀ (X ⋀ Y ->₊ Z)
     uncurry₊ {X ∋₊ x₀} {Y ∋₊ y₀} (Map f h) = Map (λ { (inl tt) -> map (f x₀) y₀
                                 ; (inr (x , y)) -> map (f x) y
                                 ; (push (inl x) i) -> (cong (λ g -> map g y₀) h ∙ sym (ptCoe (f x))) i
                                 ; (push (inr y) i) -> (cong (λ g -> map g y₀) h ∙ sym (cong (λ g -> map g y) h)) i
-                                ; (push (push tt i) j) -> {!!}
+                                ; (push (push tt i) j) -> {!ptCoe (f x₀) i0!}
                                 })
                              (ptCoe (f x₀))
 
--- Proposition (Loop-Suspension Adjunction)
-ΩX≡𝕊¹->₊X : {X : Pointed} -> ⨀ (Ω X) ≡ ⨀ (𝕊¹₊ ->₊ X)
-ΩX≡𝕊¹->₊X = isoToPath (iso loopToMap mapToLoop loopMap∘mapLoop mapLoop∘loopMap)
+-- Lemma (Loop space is equivalent to based mapping space from 𝕊¹)
+Ω₁X≡𝕊¹->₊X : {X : Pointed} -> Ω₁ X ≡ 𝕊¹₊ ->₊ X
+Ω₁X≡𝕊¹->₊X = cong₂ _∋₊_ {!!} {!!}
   where
-    loopToMap : {X : Pointed} -> ⨀ (Ω X) -> ⨀ (𝕊¹₊ ->₊ X)
-    loopToMap l = Map (λ { baseₛ₁ -> l i0
-                         ; (loopₛ₁ i) -> l i
-                         })
-                      refl
+    loopToMap : {X : Pointed} -> ⨀ (Ω₁ X ->₊ (𝕊¹₊ ->₊ X))
+    loopToMap = Map ((λ l -> Map (λ { baseₛ₁ -> l i0; (loopₛ₁ i) -> l i}) refl))
+                    (cong₂ Map (funExt (λ {baseₛ₁ -> refl; (loopₛ₁ i) -> λ j -> refl i j})) {!!})
 
-    mapToLoop : {X : Pointed} -> ⨀ (𝕊¹₊ ->₊ X) -> ⨀ (Ω X)
-    mapToLoop (Map f h) = sym h ∙ (λ i -> f (loopₛ₁ i)) ∙ h
+    mapToLoop : {X : Pointed} -> ⨀ ((𝕊¹₊ ->₊ X) ->₊ Ω₁ X)
+    mapToLoop = Map (λ (Map f h) -> sym h ∙ (cong f loopₛ₁) ∙ h)
+                    (sym (cong (λ q -> q ∙ refl ∙ refl) symRefl) ∙ (sym (lUnit (refl ∙ refl))) ∙ (sym (rUnit refl)))
 
-    loopMap∘mapLoop : {X : Pointed {lzero}} -> section (loopToMap {X}) mapToLoop
-    loopMap∘mapLoop (Map f h) = cong₂ Map (funExt (λ { baseₛ₁ -> sym h; (loopₛ₁ i) -> {!!} })) {!!}
+    -- loopMap∘mapLoop : {X : Pointed {lzero}} -> section (loopToMap {X}) mapToLoop
+    -- loopMap∘mapLoop (Map f h) = cong₂ Map (funExt (λ {baseₛ₁ -> {!!}; (loopₛ₁ i) -> {!!}})) {!!}
 
-    mapLoop∘loopMap : {X : Pointed {lzero}} -> retract (loopToMap {X}) mapToLoop
-    mapLoop∘loopMap p = {!!} -- sym (rUnit ((sym refl) ∙ p)) ∙ sym (cong (λ q -> q ∙ p) symRefl) ∙ sym (lUnit p)
-
-Σ₊X≡X⋀𝕊¹ : {X : Pointed} -> ⨀ (Σ₊ X) ≡ ⨀ (X ⋀ 𝕊¹₊)
-Σ₊X≡X⋀𝕊¹ = isoToPath (iso suspToSmash smashToSusp {!!} {!!})
+    -- mapLoop∘loopMap : {X : Pointed {lzero}} -> retract (loopToMap {X}) mapToLoop
+    -- mapLoop∘loopMap p = assoc (sym refl) p refl ∙ sym (rUnit ((sym refl) ∙ p)) ∙ sym (cong (λ q -> q ∙ p) symRefl) ∙ sym (lUnit p)
+    
+-- Lemma (Suspension is equivalent to smash prod. with 𝕊¹)
+Σ₊X≡X⋀𝕊¹ : {X : Pointed} -> Σ₊ X ≡ X ⋀ 𝕊¹₊
+Σ₊X≡X⋀𝕊¹ = cong₂ _∋₊_ (isoToPath (iso suspToSmash smashToSusp {!!} {!!})) {!!}
   where
     suspToSmash : {X : Pointed} -> ⨀ (Σ₊ X) -> ⨀ (X ⋀ 𝕊¹₊)
     suspToSmash = λ { north -> inl tt
@@ -193,33 +184,18 @@ exponentialLaw₊ = isoToPath (iso curry₊ uncurry₊ {!!} {!!})
                     }
 
     smashToSusp : {X : Pointed} -> ⨀ (X ⋀ 𝕊¹₊) -> ⨀ (Σ₊ X) 
-    smashToSusp = λ { (inl tt) -> north
-                    ; (inr (x , baseₛ₁)) -> mer x i0
-                    ; (inr (x , (loopₛ₁ i))) -> north -- mer x i
-                    ; (push x i) -> {!!}
+    smashToSusp {X ∋₊ x₀} = λ { (inl tt) -> north
+                    ; (inr (x , baseₛ₁)) -> north
+                    ; (inr (x , (loopₛ₁ i))) -> (mer x ∙ sym (mer x₀)) i
+                    ; (push (inl x) i) -> refl i
+                    ; (push (inr baseₛ₁) i) -> refl i
+                    ; (push (inr (loopₛ₁ i)) j) -> sym (lCancel (sym (mer x₀))) j i
+                    ; (push (push tt i) j) -> refl j i
                     }
 
--- loopSuspCurry : {X Y : Pointed} -> Σ₊ X ->₊ Y -> X ->₊ Ω Y
--- loopSuspCurry {X ∋₊ x₀} = λ (Map f h) -> Map
---   (λ x -> (sym h ∙ cong f (mer x)) ∙ sym (sym h ∙ cong f (mer x₀)))
---   (rCancel (sym h ∙ cong f (mer x₀)))
--- 
--- loopSuspUncurry : {X Y : Pointed} -> X ->₊ Ω Y -> Σ₊ X ->₊ Y
--- loopSuspUncurry {X ∋₊ x₀} = λ (Map f h) -> Map
---   (λ { north -> f x₀ i0
---      ; south -> f x₀ i1
---      ; (mer x i) -> f x i
---      })
---   refl
--- 
--- loopSuspSection : {X Y : Pointed} -> section loopSuspCurry loopSuspUncurry 
--- loopSuspSection = {!!}
--- 
--- loopSuspRetract : {X Y : Pointed} -> retract loopSuspCurry loopSuspUncurry 
--- loopSuspRetract = {!!}
--- 
--- loopSuspAdjunction : {X Y : Pointed} -> Σ₊ X ->₊ Y ≡ X ->₊ Ω Y
--- loopSuspAdjunction = isoToPath (iso loopSuspCurry loopSuspUncurry loopSuspSection loopSuspRetract)
+-- Proposition (Loop-Suspension Adjunction)
+loopSuspAdjunction : {X Y : Pointed} -> ⨀ (Σ₊ X ->₊ Y) ≡ ⨀ (X ->₊ Ω₁ Y)
+loopSuspAdjunction {X} {Y} = cong (λ K -> Map₊ K Y) Σ₊X≡X⋀𝕊¹ ∙ exponentialLaw₊ ∙ cong (λ K -> Map₊ X K) (sym Ω₁X≡𝕊¹->₊X)
 
 -- Definition (Weak Equivalence)
 _≅_ : {ℓ : Level} (X Y : Type ℓ) {K : Type ℓ} -> Type (lsuc ℓ)
@@ -241,6 +217,17 @@ record Group {ℓ} : Type (lsuc ℓ) where
 open Group public
 
 -- Definition (Nth homotopy group)
--- TODO: Generalize to make it actually nth
-_π_ : (n : ℕ) (X : Pointed) -> Group
-_π_ n X = 𝒢𝓇𝓅 (⨀ (Ω X)) (_∙_) refl (sym ∘ lUnit) (sym ∘ rUnit) sym lCancel rCancel assoc
+-- record Functor₊ {ℓ} (F : Pointed {ℓ} -> Pointed {ℓ}) : Type (lsuc ℓ) where
+--   constructor ℱ𝓊𝓃𝒸𝓉₊
+--   field
+--     fmap₊ : {X Y : Pointed {ℓ}} -> ⨀ (X ->₊ Y) -> ⨀ (F X ->₊ F Y)
+--     funIdn₊ : {X : Pointed {ℓ}} -> fmap₊ {X} id ≡ id
+--     funComp₊ : {X Y Z : Pointed {ℓ}} {f : X -> Y} {g : Y -> Z} -> fmap₊ (g ∘ f) ≡ fmap₊ g ∘ fmap₊ f
+-- 
+-- Ω⁺IsFunctorial : {n : ℕ} -> Functor₊ (_Ω⁺_ n)
+-- Ω⁺IsFunctorial = {!!}
+
+_π_ : (n : ℕ) (X : Pointed {lzero}) -> Group {lzero}
+_π_ zero X = 𝒢𝓇𝓅 (⨀ (Ω₁ X)) (_∙_) refl (sym ∘ lUnit) (sym ∘ rUnit) sym lCancel rCancel assoc
+_π_ (suc n) X = 𝒢𝓇𝓅 (⨀ (n Ω⁺ X)) (λ x y → {!!}) {!!} {!!} {!!} {!!} {!!} {!!} {!!}
+
