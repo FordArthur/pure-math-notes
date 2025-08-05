@@ -8,7 +8,7 @@ open import Agda.Primitive renaming (Set to Type)
 open import Data.Nat
 open import Data.Bool
 open import Data.Product
-open import Function using (_∘_)
+open import Function using (_∘_; const)
 open import Agda.Builtin.Sigma
 open import Cubical.Foundations.Prelude
 
@@ -40,13 +40,36 @@ iter c₀ cₛ zero = c₀
 iter c₀ cₛ (suc n) = cₛ (iter c₀ cₛ n)
 
 ℕ-rec : {ℓ : Level} {C : Type ℓ} -> C -> (ℕ -> C -> C) -> ℕ -> C
-ℕ-rec c₀ cₛ = proj₂ ∘ iter (zero , c₀) (λ (n , c) -> (n , cₛ n c))
+ℕ-rec c₀ cₛ = proj₂ ∘ iter (zero , c₀) (λ (n , c) -> (suc n , cₛ n c))
 
 zero-ℕ-rec : {ℓ : Level} {C : Type ℓ} {c₀ : C} {cₛ : ℕ -> C -> C} -> ℕ-rec c₀ cₛ zero ≡ c₀
 zero-ℕ-rec = refl
 
 suc-ℕ-rec : {ℓ : Level} {C : Type ℓ} {c₀ : C} {cₛ : ℕ -> C -> C} {n : ℕ} -> ℕ-rec c₀ cₛ (suc n) ≡ cₛ n (ℕ-rec c₀ cₛ n)
-suc-ℕ-rec = {!!}
+suc-ℕ-rec {c₀ = c₀} {cₛ = cₛ} {n = zero} = refl
+suc-ℕ-rec {C = C} {c₀ = c₀} {cₛ = cₛ} {n = (suc n)} = cong {A = ℕ} {B = const C} (λ k -> {!!}) {!!}
+
+{-
+cₛ
+(iter (0 , c₀)
+ (λ .patternInTele0 →
+    suc (.patternInTele0 .proj₁) ,
+    cₛ (.patternInTele0 .proj₁) (.patternInTele0 .snd))
+ n .proj₁)
+(iter (0 , c₀)
+ (λ .patternInTele0 →
+    suc (.patternInTele0 .proj₁) ,
+    cₛ (.patternInTele0 .proj₁) (.patternInTele0 .snd))
+ n .snd)
+
+cₛ n
+(snd
+ (iter (0 , c₀)
+  (λ .patternInTele0 →
+     .patternInTele0 .proj₁ ,
+     cₛ (.patternInTele0 .proj₁) (.patternInTele0 .snd))
+  n))
+-}
 
 -- Exercise 1.5. Show that if we define A + B :≡ ∑(x:2) rec2(U , A, B, x), then we can give a definition of indA+B for which the definitional equalities stated in §1.7 hold.
 

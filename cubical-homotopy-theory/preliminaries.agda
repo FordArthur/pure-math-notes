@@ -18,6 +18,9 @@ open import Cubical.Foundations.Prelude
 open import Cubical.Foundations.Isomorphism
 open import Cubical.Foundations.GroupoidLaws
 open import Cubical.HITs.Pushout.Base
+open import Cubical.HITs.SetTruncation.Base
+open import Cubical.Foundations.Equiv
+open import Cubical.Foundations.Path
 
 -- Definition (Functoriality)
 record Functor {ℓ} (F : Type ℓ -> Type ℓ) : Type (lsuc ℓ) where
@@ -26,6 +29,7 @@ record Functor {ℓ} (F : Type ℓ -> Type ℓ) : Type (lsuc ℓ) where
     fmap : {X Y : Type ℓ} -> (X -> Y) -> F X -> F Y
     funIdn : {X : Type ℓ} -> fmap {X} id ≡ id
     funComp : {X Y Z : Type ℓ} {f : X -> Y} {g : Y -> Z} -> fmap (g ∘ f) ≡ fmap g ∘ fmap f
+open Functor public
 
 -- Theorem (Mapping space out of the point is equivalent to the codomain)
 typeToposIsWellPointed : {ℓ : Level} { X : Type ℓ } -> (⊤ -> X) ≡ X
@@ -141,19 +145,21 @@ exponentialLaw₊ : {X Y Z : Pointed} -> ⨀ (X ⋀ Y ->₊ Z) ≡ ⨀ (X ->₊ 
 exponentialLaw₊ = isoToPath (iso curry₊ uncurry₊ {!!} {!!})
   where
     curry₊ : {X Y Z : Pointed} -> ⨀ (X ⋀ Y ->₊ Z) -> ⨀ (X ->₊ Y ->₊ Z)
-    curry₊ {Y = Y} (Map f h) = Map (λ x -> Map (λ y -> f (inr (x , y)))
-                                       (sym (cong f (push (inl x))) ∙ h))
-                           (cong₂ Map (funExt (λ y -> sym (cong f (push (inr y))) ∙ h))
-                                      (λ i -> λ j -> {!h (i ∨ j)!})) -- in j: p p⁻¹ -> z₀ in i: f x₀ -> z₀
+    curry₊ {X ∋₊ x₀} {Y ∋₊ y₀} {Z ∋₊ z₀} (Map f h) =
+      Map (λ x -> Map (λ y -> f (inr (x , y)))
+                  (cong f (sym (push (inl x))) ∙ h))
+          (cong₂ Map (funExt (λ y -> sym (cong f (push (inr y))) ∙ h))
+                 (invEq slideSquareEquiv (flipSquare (cong (λ x → sym (cong f (push x)) ∙ h) (sym (push tt))))))
 
     uncurry₊ : {X Y Z : Pointed} -> ⨀ (X ->₊ Y ->₊ Z) -> ⨀ (X ⋀ Y ->₊ Z)
-    uncurry₊ {X ∋₊ x₀} {Y ∋₊ y₀} (Map f h) = Map (λ { (inl tt) -> map (f x₀) y₀
-                                ; (inr (x , y)) -> map (f x) y
-                                ; (push (inl x) i) -> (cong (λ g -> map g y₀) h ∙ sym (ptCoe (f x))) i
-                                ; (push (inr y) i) -> (cong (λ g -> map g y₀) h ∙ sym (cong (λ g -> map g y) h)) i
-                                ; (push (push tt i) j) -> {!ptCoe (f x₀) i0!}
-                                })
-                             (ptCoe (f x₀))
+    uncurry₊ {X ∋₊ x₀} {Y ∋₊ y₀} {Z ∋₊ z₀} (Map f h) =
+      Map (λ { (inl tt) -> map (f x₀) y₀
+             ; (inr (x , y)) -> map (f x) y
+             ; (push (inl x) i) -> (cong (λ g -> map g y₀) h ∙ sym (ptCoe (f x))) i
+             ; (push (inr y) i) -> (cong (λ g -> map g y₀) h ∙ sym (cong (λ g -> map g y) h)) i
+             ; (push (push tt i) j) -> {!!}
+             })
+          (ptCoe (f x₀))
 
 -- Lemma (Loop space is equivalent to based mapping space from 𝕊¹)
 Ω₁X≡𝕊¹->₊X : {X : Pointed} -> Ω₁ X ≡ 𝕊¹₊ ->₊ X
@@ -178,10 +184,10 @@ exponentialLaw₊ = isoToPath (iso curry₊ uncurry₊ {!!} {!!})
 Σ₊X≡X⋀𝕊¹ = cong₂ _∋₊_ (isoToPath (iso suspToSmash smashToSusp {!!} {!!})) {!!}
   where
     suspToSmash : {X : Pointed} -> ⨀ (Σ₊ X) -> ⨀ (X ⋀ 𝕊¹₊)
-    suspToSmash = λ { north -> inl tt
-                    ; south -> inl tt
-                    ; (mer x i) -> (push (inl x) ∙ (λ j -> inr (x , loopₛ₁ j)) ∙ sym (push (inl x))) i
-                    }
+    suspToSmash {X ∋₊ x₀} = λ { north -> inl tt
+                              ; south -> inl tt
+                              ; (mer x i) -> (push (inl x) ∙ (λ j -> inr (x , loopₛ₁ j)) ∙ sym (push (inl x))) i
+                              }
 
     smashToSusp : {X : Pointed} -> ⨀ (X ⋀ 𝕊¹₊) -> ⨀ (Σ₊ X) 
     smashToSusp {X ∋₊ x₀} = λ { (inl tt) -> north
@@ -217,17 +223,7 @@ record Group {ℓ} : Type (lsuc ℓ) where
 open Group public
 
 -- Definition (Nth homotopy group)
--- record Functor₊ {ℓ} (F : Pointed {ℓ} -> Pointed {ℓ}) : Type (lsuc ℓ) where
---   constructor ℱ𝓊𝓃𝒸𝓉₊
---   field
---     fmap₊ : {X Y : Pointed {ℓ}} -> ⨀ (X ->₊ Y) -> ⨀ (F X ->₊ F Y)
---     funIdn₊ : {X : Pointed {ℓ}} -> fmap₊ {X} id ≡ id
---     funComp₊ : {X Y Z : Pointed {ℓ}} {f : X -> Y} {g : Y -> Z} -> fmap₊ (g ∘ f) ≡ fmap₊ g ∘ fmap₊ f
--- 
--- Ω⁺IsFunctorial : {n : ℕ} -> Functor₊ (_Ω⁺_ n)
--- Ω⁺IsFunctorial = {!!}
-
-_π_ : (n : ℕ) (X : Pointed {lzero}) -> Group {lzero}
-_π_ zero X = 𝒢𝓇𝓅 (⨀ (Ω₁ X)) (_∙_) refl (sym ∘ lUnit) (sym ∘ rUnit) sym lCancel rCancel assoc
-_π_ (suc n) X = 𝒢𝓇𝓅 (⨀ (n Ω⁺ X)) (λ x y → {!!}) {!!} {!!} {!!} {!!} {!!} {!!} {!!}
-
+-- TODO: Set truncate
+_π⁺_ : (n : ℕ) (X : Pointed {lzero}) -> Group {lzero}
+_π⁺_ zero X = 𝒢𝓇𝓅 (⨀ (Ω₁ X)) (_∙_) refl (sym ∘ lUnit) (sym ∘ rUnit) sym lCancel rCancel assoc
+_π⁺_ (suc n) X = zero π⁺ (n Ω⁺ X)
