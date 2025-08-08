@@ -25,7 +25,7 @@ This is a repository that I pretend to keep expanding with all the knowledge I g
 - [The Book](https://hott.github.io/book/hott-online-71-gc4e57d5.pdf): By far the best introductory text on Homotopy Type Theory (will go so far as to say it's my favourite math book that I've read). Hard, but manageable even without much prior knowledge.
 - [MSRI Cubical Sets Seminar](https://www.youtube.com/watch?v=eX4TYYUPcI0&list=PLCR1g38cGmgiaSzdjc_gxP-V-P--wbVWn&index=1): (In progress)
 - [HoTTEST Lectures](https://youtu.be/HvYYCHMeM-8?list=PLtIZ5qxwSNnzpNqfXzJjlHI9yCAzRzKtx): (Not watched, but great channel in general)
-- [Kan Simplicial Set Model of Type Theory](https://youtu.be/Y5Z5YlYnhc8): (Haven't watched yet)
+- [Kan Simplicial Set Model of Type Theory](https://youtu.be/Y5Z5YlYnhc8): (In progress)
 - [Simplicial Types](https://youtu.be/DalYcHABM4U): Simplicial Types inside HoTT.
 
 ## (Higher) Topos Theory

@@ -1,0 +1,210 @@
+{-# OPTIONS --without-K --safe --cubical #-}
+
+module type-theory where
+
+open import Agda.Primitive renaming (Set to Type)
+open import Data.Empty
+open import Data.Unit
+open import Data.Sum
+open import Data.Nat
+open import Data.Bool
+open import Relation.Nullary using (¬_)
+open import Data.Product
+open import Function using (_∘_; const; id; _|>_)
+open import Agda.Builtin.Sigma
+open import Cubical.Foundations.Prelude
+
+-- Exercise 1.1. Given functions f : A → B and g : B → C, define their composite g ◦ f : A → C. Show that we have h ◦ (g ◦ f) ≡ (h ◦ g) ◦ f.
+_∘'_ : {ℓ : Level} {A B C : Type ℓ} -> (B -> C) -> (A -> B) -> A -> C
+_∘'_ g f = λ a -> g (f a)
+
+∘'-assoc : {ℓ : Level} {A B C D : Type ℓ} -> {h : C -> D} -> {g : B -> C} -> {f : A -> B} -> h ∘' (g ∘' f) ≡ (h ∘' g) ∘' f
+∘'-assoc {h = h} {g = g} {f = f} = refl
+
+-- Exercise 1.2. Derive the recursion principle for products recA×B using only the projections, and verify that the definitional equalities are valid. Do the same for Σ-types.
+×-rec : {ℓ : Level} {A B C : Type ℓ} -> (A -> B -> C) -> (A × B) -> C
+×-rec f = λ p -> f (proj₁ p) (proj₂ p)
+
+Σ-rec : {ℓ : Level} {A : Type ℓ} {B : A -> Type ℓ} {C : Type ℓ} -> ((a : A) -> (b : B a) -> C) -> Σ A B -> C
+Σ-rec f = λ p -> f (fst p) (snd p)
+
+-- Exercise 1.3. Derive the induction principle for products indA×B, using only the projections and the propositional uniqueness principle uniqA×B. Verify that the definitional equalities are valid.
+×-ind : {ℓ : Level} {A B : Type ℓ} {C : A × B -> Type ℓ} -> ((a : A) -> (b : B) -> C (a , b)) -> (p : A × B) -> C p
+×-ind f = λ p -> f (proj₁ p) (proj₂ p)
+
+Σ-ind : {ℓ : Level} {A : Type ℓ} {B : A -> Type ℓ} {C : Σ A B -> Type ℓ} -> ((a : A) -> (b : B a) -> C (a , b)) -> (p : Σ A B) -> C p
+Σ-ind f = λ p -> f (fst p) (snd p)
+
+-- Exercise 1.4. Assuming as given only the iterator for natural numbers iter : ∏ C:U C → (C → C) → N → C with the defining equations iter(C, c0, cs, 0) :≡ c0, iter(C, c0, cs, succ(n)) :≡ cs(iter(C, c0, cs, n)), derive a function having the type of the recursor recN. Show that the defining equations of the recursor hold propositionally for this function, using the induction principle for N.
+iter : {ℓ : Level} {C : Type ℓ} -> C -> (C -> C) -> ℕ -> C
+iter c₀ cₛ zero = c₀
+iter c₀ cₛ (suc n) = cₛ (iter c₀ cₛ n)
+
+step : {ℓ : Level} {C : Type ℓ} -> (ℕ -> C -> C) -> ℕ × C → ℕ × C
+step f (n , c) = (suc n , f n c)
+
+ℕ-rec : {ℓ : Level} {C : Type ℓ} -> C -> (ℕ -> C -> C) -> ℕ -> C
+ℕ-rec c₀ cₛ = proj₂ ∘ iter (zero , c₀) (step cₛ)
+
+zero-ℕ-rec : {ℓ : Level} {C : Type ℓ} {c₀ : C} {cₛ : ℕ -> C -> C} -> ℕ-rec c₀ cₛ zero ≡ c₀
+zero-ℕ-rec = refl
+
+suc-ℕ-rec : {ℓ : Level} {C : Type ℓ} {c₀ : C} {cₛ : ℕ -> C -> C} {n : ℕ} -> ℕ-rec c₀ cₛ (suc n) ≡ cₛ n (ℕ-rec c₀ cₛ n)
+suc-ℕ-rec {c₀ = c₀} {cₛ = cₛ} {n = n} = cong (λ m -> cₛ m (ℕ-rec c₀ cₛ n)) (lemma n)
+  where lemma : (n : ℕ) -> proj₁ (iter (zero , c₀) (step cₛ) n) ≡ n
+        lemma zero    = refl
+        lemma (suc n) = cong suc (lemma n)
+
+-- Exercise 1.5. Show that if we define A + B :≡ ∑(x:2) rec2(U , A, B, x), then we can give a definition of indA+B for which the definitional equalities stated in §1.7 hold.
+Bool-rec : {ℓ : Level} {C : Type ℓ} -> C -> C -> Bool -> C
+Bool-rec c₀ c₁ false = c₀
+Bool-rec c₀ c₁ true = c₁
+
+_+'_ : {ℓ : Level} (A B : Type ℓ) -> Type ℓ
+_+'_ A B = Σ Bool (Bool-rec A B)
+
++'-ind : {ℓ : Level} {A B : Type ℓ} {C : A +' B -> Type ℓ} -> ((a : A) -> C (false , a)) -> ((b : B) -> C (true , b)) -> (p : A +' B) -> C p
++'-ind c₀ c₁ (false , a) = c₀ a
++'-ind c₀ c₁ (true , b) = c₁ b
+
+inl-+'-ind : {ℓ : Level} {A B : Type ℓ} {C : A +' B -> Type ℓ} {f₀ : (a : A) -> C (false , a)} {f₁ : (b : B) -> C (true , b)} {a : A} -> +'-ind {C = C} f₀ f₁ (false , a) ≡ f₀ a
+inl-+'-ind = refl
+
+inr-+'-ind : {ℓ : Level} {A B : Type ℓ} {C : A +' B -> Type ℓ} {f₀ : (a : A) -> C (false , a)} {f₁ : (b : B) -> C (true , b)} {b : B} -> +'-ind {C = C} f₀ f₁ (true , b) ≡ f₁ b
+inr-+'-ind = refl
+
+-- Exercise 1.8. Define multiplication and exponentiation using recN. Verify that (N, +, 0, ×, 1) is a semiring using only indN. You will probably also need to use symmetry and transitivity of equality, Lemmas 2.1.1 and 2.1.2.
+record Semiring {ℓ : Level} : Type (ℓ-suc ℓ) where
+  infix 6 _＋_
+  infix 7 _＊_
+  field 
+    𝓡 : Type ℓ
+    _＋_ : 𝓡 -> 𝓡 -> 𝓡
+    0𝓡 : 𝓡
+    _＊_ : 𝓡 -> 𝓡 -> 𝓡
+    1𝓡 : 𝓡
+    ＋-unitₗ : (a : 𝓡) -> (0𝓡 ＋ a) ≡ a
+    ＋-unitᵣ : (a : 𝓡) -> a ＋ 0𝓡 ≡ a
+    ＋-assoc : (a b c : 𝓡) -> a ＋ (b ＋ c) ≡ (a ＋ b) ＋ c
+    ＊-unitₗ : (a : 𝓡) -> (1𝓡 ＊ a) ≡ a
+    ＊-unitᵣ : (a : 𝓡) -> (a ＊ 1𝓡) ≡ a
+    ＊-assoc : (a b c : 𝓡) -> a ＊ (b ＊ c) ≡ (a ＊ b) ＊ c
+    ＊-distrₗ : (a b c : 𝓡) -> a ＊ (b ＋ c) ≡ a ＊ b ＋ a ＊ c
+    ＊-distrᵣ : (a b c : 𝓡) -> (b ＋ c) ＊ a ≡ b ＊ a ＋ c ＊ a
+open Semiring public
+
+ℕ'-rec : {ℓ : Level} {C : Type ℓ} -> C -> (ℕ -> C -> C) -> ℕ -> C
+ℕ'-rec c₀ cₛ zero    = c₀
+ℕ'-rec c₀ cₛ (suc n) = cₛ n (ℕ'-rec c₀ cₛ n)
+
+infixl 6 _+ℕ_
+_+ℕ_ : ℕ -> ℕ -> ℕ
+n +ℕ m = ℕ'-rec m (λ _ n' -> suc n') n
+
+infixl 7 _×ℕ_
+_×ℕ_ : ℕ -> ℕ -> ℕ
+n ×ℕ m = ℕ'-rec zero (λ _ n' -> m +ℕ n') n
+
+infixl 8 _^ℕ_
+_^ℕ_ : ℕ -> ℕ -> ℕ
+n ^ℕ m = ℕ'-rec 1 (λ _ n' -> n ×ℕ n') m
+
+ℕSemiRing : Semiring
+ℕSemiRing = record
+  { 𝓡 = ℕ
+  ; _＋_ = _+ℕ_
+  ; 0𝓡 = zero
+  ; _＊_ = _×ℕ_
+  ; 1𝓡 = suc zero
+  ; ＋-unitₗ = λ _ -> refl
+  ; ＋-unitᵣ = +-unitᵣ
+  ; ＋-assoc = +-assoc
+  ; ＊-unitₗ = ×-unitₗ
+  ; ＊-unitᵣ = ×-unitᵣ
+  ; ＊-assoc = ×-assoc
+  ; ＊-distrₗ = ×-distrₗ
+  ; ＊-distrᵣ = ×-distrᵣ
+  }
+  where
+    +-unitᵣ : (n : ℕ) → (n +ℕ 0) ≡ n
+    +-unitᵣ zero = refl
+    +-unitᵣ (suc n) = cong suc (+-unitᵣ n)
+
+    +-assoc : (n m ñ : ℕ) → n +ℕ (m +ℕ ñ) ≡ (n +ℕ m) +ℕ ñ
+    +-assoc zero zero ñ = refl
+    +-assoc zero (suc m) ñ = cong suc (+-assoc zero m ñ)
+    +-assoc (suc n) m ñ = cong suc (+-assoc n m ñ)
+
+    +-suc : (m n : ℕ) → m +ℕ suc n ≡ suc (m +ℕ n)
+    +-suc zero n = refl
+    +-suc (suc m) n = cong suc (+-suc m n)
+
+    +-comm : (n m : ℕ) → n +ℕ m ≡ m +ℕ n
+    +-comm zero m = sym (+-unitᵣ m)
+    +-comm (suc n) m = cong suc (+-comm n m) ∙ sym (+-suc m n)
+
+    ×-unitₗ : (n : ℕ) → 1 ×ℕ n ≡ n
+    ×-unitₗ zero = refl
+    ×-unitₗ (suc n) = cong suc (×-unitₗ n)
+
+    ×-unitᵣ : (n : ℕ) → n ×ℕ 1 ≡ n
+    ×-unitᵣ zero = refl
+    ×-unitᵣ (suc n) = cong suc (×-unitᵣ n)
+
+    ×-distrₗ : (n m ñ : ℕ) → n ×ℕ (m +ℕ ñ) ≡ n ×ℕ m +ℕ n ×ℕ ñ
+    ×-distrₗ zero m ñ = refl
+    ×-distrₗ (suc n) m ñ =
+        cong ((m +ℕ ñ) +ℕ_) (×-distrₗ n m ñ)
+        ∙ +-assoc (m +ℕ ñ) (n ×ℕ m) (n ×ℕ ñ)
+        ∙ cong (_+ℕ n ×ℕ ñ) (sym (+-assoc m ñ (n ×ℕ m)))
+        ∙ cong (λ x → (m +ℕ x) +ℕ n ×ℕ ñ) (+-comm ñ (n ×ℕ m))
+        ∙ cong (_+ℕ n ×ℕ ñ) (+-assoc m (n ×ℕ m) ñ)
+        ∙ sym (+-assoc (m +ℕ n ×ℕ m) ñ (n ×ℕ ñ))
+
+    ×-distrᵣ : (n m ñ : ℕ) → (m +ℕ ñ) ×ℕ n ≡ m ×ℕ n +ℕ ñ ×ℕ n
+    ×-distrᵣ n zero ñ = refl
+    ×-distrᵣ n (suc m) ñ =
+        cong (n +ℕ_) (×-distrᵣ n m ñ) ∙ +-assoc n (m ×ℕ n) (ñ ×ℕ n)
+
+    suc-distr : (n m : ℕ) → suc n ×ℕ m ≡ m +ℕ n ×ℕ m
+    suc-distr n m = refl
+
+    ×-assoc : (n m ñ : ℕ) → n ×ℕ (m ×ℕ ñ) ≡ (n ×ℕ m) ×ℕ ñ
+    ×-assoc zero m ñ = refl
+    ×-assoc (suc n) m ñ =
+        suc-distr n (m ×ℕ ñ)
+        ∙ cong ((m ×ℕ ñ) +ℕ_) (×-assoc n m ñ)
+        ∙ sym (×-distrᵣ ñ m (n ×ℕ m))
+
+-- Exercise 1.9. Define the type family Fin : N → U mentioned at the end of §1.3, and the dependent function fmax : ∏(n:N) Fin(n + 1) mentioned in §1.4.
+Fin : ℕ -> Type
+Fin zero    = ⊥
+Fin (suc n) = ⊤ ⊎ Fin n
+
+fmax : (n : ℕ) -> Fin (suc n)
+fmax n = inj₁ tt
+
+-- Exercise 1.10. Show that the Ackermann function ack : N → N → N is definable using only recN satisfying the following equations: ack(0, n) ≡ succ(n), ack(succ(m), 0) ≡ ack(m, 1), ack(succ(m), succ(n)) ≡ ack(m, ack(succ(m), n)).
+ack : ℕ -> ℕ -> ℕ
+ack = ℕ-rec suc (λ pm rm -> ℕ-rec (rm 1) (λ pn rn -> rm rn))
+
+-- Exercise 1.11. Show that for any type A, we have ¬¬¬A → ¬A
+doubleNeg : {ℓ : Level} {A : Type ℓ} -> ¬ ¬ ¬ A -> ¬ A
+doubleNeg nnnA = λ A -> nnnA (λ nA -> nA A)
+
+-- Exercise 1.12. Using the propositions as types interpretation, derive the following tautologies. (i) If A, then (if B then A). (ii) If A, then not (not A). (iii) If (not A or not B), then not (A and B).
+tau1 : {ℓ : Level} {A B : Type ℓ} -> A -> (B -> A)
+tau1 = λ a -> λ _ -> a -- which is const
+
+tau2 : {ℓ : Level} {A : Type ℓ} -> A -> ¬ ¬ A
+tau2 A = λ nA -> nA A -- which is application
+
+tau3 : {ℓ : Level} {A B : Type ℓ} -> (¬ A ⊎ ¬ B) -> ¬ (A × B)
+tau3 (inj₁ na) = λ (a , b) -> na a -- which is case-split
+tau3 (inj₂ nb) = λ (a , b) -> nb b
+
+-- Exercise 1.13. using propositions-as-types, derive the double negation of the principle of ex- cluded middle, i.e. prove not (not (p or not p))
+¬¬LEM : {ℓ : Level} {P : Type ℓ} -> ¬ ¬ (P ⊎ ¬ P)
+¬¬LEM = λ ¬LEM -> uncurry _|>_ (deMorgan ¬LEM)
+  where deMorgan : {ℓ : Level} {A B : Type ℓ} -> ¬ (A ⊎ B) -> ¬ A × ¬ B
+        deMorgan nAorB = (λ a -> nAorB (inj₁ a)) , (λ b -> nAorB (inj₂ b))
